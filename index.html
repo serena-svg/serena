@@ -2,25 +2,25 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>📊 Meta 素材 & 受眾判斷大腦 (GitHub 版)</title>
+    <title>📊 Meta 素材分析系統 (GitHub 版)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --fb: #1877F2; --winner: #2f855a; --risk: #d69e2e; --stop: #c53030; }
         body { font-family: "PingFang TC", sans-serif; background: #f0f2f5; padding: 20px; }
         .card { background: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .btn-upload { background: var(--fb); color: white; padding: 12px 24px; border-radius: 25px; border: none; font-weight: bold; cursor: pointer; }
-        .chart-box { height: 450px; margin: 20px 0; }
+        .chart-box { height: 400px; margin: 20px 0; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; margin-bottom: 30px; }
         th { background: #4a5568; color: white; padding: 12px; }
         td { padding: 12px; border: 1px solid #e2e8f0; text-align: center; }
-        .group-header { background: #edf2f7; font-weight: bold; color: #2d3748; text-align: left; padding: 10px 15px; border-left: 5px solid var(--fb); }
+        .group-header { background: #edf2f7; font-weight: bold; color: #2d3748; text-align: left; padding: 12px 15px; border-left: 5px solid var(--fb); margin-top: 20px; }
         .badge { padding: 4px 10px; border-radius: 12px; color: white; font-weight: bold; font-size: 11px; }
         .bg-winner { background: var(--winner); } .bg-risk { background: var(--risk); } .bg-stop { background: var(--stop); }
     </style>
 </head>
 <body>
     <div class="card" style="text-align:center;">
-        <h2>📊 Meta 素材 & 受眾判斷大腦 (GitHub 版)</h2>
+        <h2>📊 Meta 素材分析系統 (GitHub 版)</h2>
         <input type="file" id="csvFile" accept=".csv" style="display:none">
         <button class="btn-upload" onclick="document.getElementById('csvFile').click()">📂 上傳 CSV 報表</button>
     </div>
@@ -51,7 +51,6 @@
                 let rawSet = c[idx.set]?.replace(/"/g,'') || "";
                 let rawName = c[idx.name]?.replace(/"/g,'') || "";
                 
-                // 排除日期格式
                 const isDate = (str) => /^\d{4}/.test(str);
                 if (isDate(rawSet)) rawSet = c[idx.set + 1]?.replace(/"/g,'') || rawSet;
                 if (isDate(rawName)) rawName = c[idx.name + 1]?.replace(/"/g,'') || rawName;
@@ -59,21 +58,15 @@
                 const ctr = parseFloat(c[idx.ctr]) || 0;
                 const cpc = parseFloat(c[idx.cpc]) || 0;
 
-                let item = { 
-                    set: rawSet, 
-                    name: rawName, 
-                    ctr: ctr.toFixed(1), // 小數點一位
-                    cpc: cpc.toFixed(1), // 小數點一位
+                return { 
+                    set: rawSet, name: rawName, 
+                    ctr: ctr.toFixed(1), cpc: cpc.toFixed(1), 
                     spend: parseFloat(c[idx.spend]) || 0, 
-                    type: c[idx.type]?.replace(/"/g,'') || "廣告數據" 
+                    type: c[idx.type]?.replace(/"/g,'') || "導流數據",
+                    l: (ctr >= 4 && cpc <= 9) ? "主力素材" : (ctr >= 4 && cpc > 9) ? "可用但貴" : (ctr < 4 && cpc <= 9) ? "風險素材" : "問題素材",
+                    c: (ctr >= 4 && cpc <= 9) ? "bg-winner" : (ctr >= 4 && cpc > 9 || ctr < 4 && cpc <= 9) ? "bg-risk" : "bg-stop",
+                    a: (ctr >= 4 && cpc <= 9) ? "放量投遞" : (ctr >= 4 && cpc > 9) ? "優化受眾" : (ctr < 4 && cpc <= 9) ? "優化圖面" : "建議停投"
                 };
-
-                // 判斷邏輯
-                if (ctr >= 4 && cpc <= 9) { item.l="主力素材"; item.c="bg-winner"; item.a="放量"; }
-                else if (ctr >= 4 && cpc > 9) { item.l="可用但貴"; item.c="bg-risk"; item.a="優化受眾"; }
-                else if (ctr < 4 && cpc <= 9) { item.l="風險素材"; item.c="bg-risk"; item.a="優化圖面"; }
-                else { item.l="問題素材"; item.c="bg-stop"; item.a="停投"; }
-                return item;
             }).filter(d => d && d.spend > 0);
 
             render(data);
@@ -88,7 +81,6 @@
                 const card = document.createElement('div'); card.className = 'card';
                 const cid = `chart-${Math.random().toString(36).substr(2, 5)}`;
                 
-                // 按受眾分組
                 const audienceGroups = {};
                 groupByType.forEach(item => {
                     if (!audienceGroups[item.set]) audienceGroups[item.set] = [];
@@ -98,24 +90,20 @@
                 let tableHtml = "";
                 Object.keys(audienceGroups).forEach(audience => {
                     tableHtml += `
-                        <div class="group-header">📍 受眾組合：${audience}</div>
+                        <div class="group-header">📍 受眾分組：${audience}</div>
                         <table>
-                            <tr><th width="30%">素材名稱</th><th width="15%">CTR</th><th width="15%">CPC</th><th width="20%">判定</th><th width="20%">建議動作</th></tr>
+                            <tr><th width="40%">素材名稱</th><th width="15%">CTR</th><th width="15%">CPC</th><th width="15%">判定</th><th width="15%">對策</th></tr>
                             ${audienceGroups[audience].map(i => `
                                 <tr>
                                     <td style="font-weight:bold; text-align:left;">${i.name}</td>
-                                    <td>${i.ctr}%</td>
-                                    <td>$${i.cpc}</td>
+                                    <td>${i.ctr}%</td><td>$${i.cpc}</td>
                                     <td><span class="badge ${i.c}">${i.l}</span></td>
                                     <td>${i.a}</td>
                                 </tr>`).join('')}
                         </table>`;
                 });
 
-                card.innerHTML = `
-                    <h3>🎯 目標類型：${t}</h3>
-                    <div class="chart-box"><canvas id="${cid}"></canvas></div>
-                    ${tableHtml}`;
+                card.innerHTML = `<h3>🎯 目標類型：${t}</h3><div class="chart-box"><canvas id="${cid}"></canvas></div>${tableHtml}`;
                 out.appendChild(card);
                 
                 new Chart(document.getElementById(cid), {
@@ -123,18 +111,14 @@
                     data: {
                         datasets: [{
                             label: '素材成效雷達',
-                            data: groupByType.map(i => ({ x: i.cpc, y: i.ctr, info: `${i.set} | ${i.name}` })),
+                            data: groupByType.map(i => ({ x: parseFloat(i.cpc), y: parseFloat(i.ctr), info: `${i.set} | ${i.name}` })),
                             backgroundColor: groupByType.map(i => i.c==='bg-winner'?'#2f855a':(i.c==='bg-risk'?'#d69e2e':'#c53030')),
                             pointRadius: 10
                         }]
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            tooltip: {
-                                callbacks: { label: ctx => `【${ctx.raw.info}】 CTR: ${ctx.parsed.y}%, CPC: $${ctx.parsed.x}` }
-                            }
-                        }
+                        plugins: { tooltip: { callbacks: { label: ctx => `【${ctx.raw.info}】 CTR: ${ctx.parsed.y}%, CPC: $${ctx.parsed.x}` } } }
                     }
                 });
             });
