@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>📊 Meta 素材分析系統 (GitHub 版)</title>
+    <title>📊 Meta 素材分析系統 </title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --fb: #1877F2; --winner: #2f855a; --risk: #d69e2e; --stop: #c53030; }
