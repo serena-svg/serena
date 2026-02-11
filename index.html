@@ -2,140 +2,103 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Meta 專業數據大腦 - 修正版</title>
+    <title>專業廣告素材分析系統</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --fb: #1877F2; --line: #06C755; --bg: #f8fafc; --winner: #2f855a; --risk: #d69e2e; --stop: #c53030; }
-        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background: var(--bg); padding: 15px; }
-        .card { background: white; padding: 25px; border-radius: 16px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .upload-zone { border: 2px dashed #cbd5e0; padding: 40px; text-align: center; border-radius: 12px; cursor: pointer; background: #fff; }
-        .filter-bar { display: none; background: #edf2f7; padding: 15px; border-radius: 12px; margin-top: 20px; align-items: center; justify-content: center; gap: 10px; }
-        .btn-fb { background: var(--fb); color: white; padding: 12px 24px; border-radius: 30px; border: none; font-weight: bold; cursor: pointer; }
-        .btn-line { background: var(--line); color: white; padding: 8px 16px; border-radius: 8px; border: none; font-size: 13px; cursor: pointer; font-weight: bold; }
-        .chart-box { height: 450px; margin: 25px 0; }
+        :root { --fb: #1877F2; --winner: #2f855a; --risk: #d69e2e; --stop: #c53030; }
+        body { font-family: "PingFang TC", sans-serif; background: #f0f2f5; padding: 20px; }
+        .card { background: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .btn-upload { background: var(--fb); color: white; padding: 12px 24px; border-radius: 25px; border: none; font-weight: bold; cursor: pointer; }
+        .chart-container { height: 400px; margin: 20px 0; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { background: #f1f5f9; padding: 12px; border: 1px solid #e2e8f0; }
+        th { background: #4a5568; color: white; padding: 12px; }
         td { padding: 12px; border: 1px solid #e2e8f0; text-align: center; }
         .badge { padding: 4px 10px; border-radius: 12px; color: white; font-weight: bold; font-size: 11px; }
         .bg-winner { background: var(--winner); } .bg-risk { background: var(--risk); } .bg-stop { background: var(--stop); }
-        .advice { background: #f1f5f9; padding: 8px; border-radius: 8px; font-size: 11px; text-align: left; border-left: 4px solid var(--fb); margin-top: 5px; }
     </style>
 </head>
 <body>
     <div class="card" style="text-align:center;">
-        <h2>📊 專業數據分析 (名詞與雷達感應修正版)</h2>
-        <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-            <button class="btn-fb">📂 上傳廣告 CSV</button>
-            <input type="file" id="fileInput" accept=".csv" style="display:none">
-        </div>
-        <div class="filter-bar" id="filterBar">
-            🗓️ 篩選：<input type="date" id="sD"> 至 <input type="date" id="eD">
-            <button class="btn-fb" style="padding: 6px 18px;" onclick="apply()">重新整理</button>
-        </div>
+        <h2>📊 Meta 素材 & 受眾判斷大腦 (GitHub 版)</h2>
+        <input type="file" id="csvFile" accept=".csv" style="display:none">
+        <button class="btn-upload" onclick="document.getElementById('csvFile').click()">📂 上傳 CSV 報表</button>
     </div>
     <div id="results"></div>
 
     <script>
-        let allData = [];
-        document.getElementById('fileInput').addEventListener('change', e => {
+        document.getElementById('csvFile').addEventListener('change', e => {
             const reader = new FileReader();
-            reader.onload = ev => { parse(ev.target.result); document.getElementById('filterBar').style.display='flex'; };
+            reader.onload = ev => analyze(ev.target.result);
             reader.readAsText(e.target.files[0]);
         });
 
-        function parse(csv) {
+        function analyze(csv) {
             const lines = csv.trim().split('\n');
             const h = lines[0].split(',');
-            const find = ks => h.findIndex(col => ks.some(k => col.includes(k)));
-            const idx = { name: 0, set: 1, spend: find(["花費"]), ctr: find(["CTR"]), cpc: find(["CPC"]), cpm: find(["CPM"]), type: find(["成果類型"]), s: find(["開始"]), e: find(["結束"]) };
             
-            allData = lines.slice(1).map(l => {
+            // 修正：避開日期格式，精準抓取文字欄位
+            const findIdx = (ks) => h.findIndex(col => ks.some(k => col.includes(k)));
+            const idx = {
+                name: findIdx(["素材", "廣告名稱"]),
+                set: findIdx(["受眾", "廣告組合"]),
+                spend: findIdx(["花費"]), ctr: findIdx(["CTR"]), cpc: findIdx(["CPC"]), type: findIdx(["成果類型"])
+            };
+
+            const data = lines.slice(1).map(l => {
                 const c = l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
                 if (c.length < 5) return null;
-                return {
-                    name: c[0].replace(/"/g,''), // 素材
-                    set: c[1].replace(/"/g,''),  // 受眾
-                    spend: parseFloat(c[idx.spend])||0,
-                    ctr: parseFloat(c[idx.ctr])||0,
-                    cpc: parseFloat(c[idx.cpc])||0,
-                    cpm: Math.round(parseFloat(c[idx.cpm])||0),
-                    type: c[idx.resType]?.replace(/"/g,'') || "導流",
-                    s: c[idx.s]||"", e: c[idx.e]||""
+                const ctr = parseFloat(c[idx.ctr]) || 0;
+                const cpc = parseFloat(c[idx.cpc]) || 0;
+                let res = {
+                    name: c[idx.name]?.replace(/"/g,'') || "未知素材",
+                    set: c[idx.set]?.replace(/"/g,'') || "未知受眾",
+                    ctr, cpc, spend: parseFloat(c[idx.spend]) || 0,
+                    type: c[idx.type]?.replace(/"/g,'') || "導流廣告"
                 };
+
+                // 比照導流素材四象限判斷標準
+                if (ctr >= 4 && cpc <= 9) { res.l="主力素材"; res.c="bg-winner"; res.a="放量"; }
+                else if (ctr >= 4 && cpc > 9) { res.l="吸引錯族群"; res.c="bg-risk"; res.a="改文案或受眾"; }
+                else if (ctr < 4 && cpc <= 9) { res.l="小眾但精準"; res.c="bg-risk"; res.a="保留"; }
+                else { res.l="可淘汰"; res.c="bg-stop"; res.a="停投"; }
+                return res;
             }).filter(d => d && d.spend > 0);
 
-            if(allData.length > 0) {
-                document.getElementById('sD').value = allData[0].s;
-                document.getElementById('eD').value = allData[0].e;
-            }
-            apply();
+            render(data);
         }
 
-        function apply() {
-            const sd = document.getElementById('sD').value, ed = document.getElementById('eD').value;
-            const groups = { "名單廣告": [], "導流廣告": [], "互動廣告": [] };
+        function render(data) {
+            const out = document.getElementById('results'); out.innerHTML = "";
+            const targets = [...new Set(data.map(i => i.type))];
             
-            allData.filter(d => d.s >= sd && d.e <= ed).forEach(d => {
-                let target = d.type.includes("Lead") || d.type.includes("名單") ? "名單廣告" : (d.type.includes("互動") ? "互動廣告" : "導流廣告");
-                let item = {...d};
-                // 使用教材判斷標準
-                if (d.ctr>=4 && d.cpc<=9) { item.l="主力素材"; item.c="bg-winner"; item.t="正確說法：圖面吸睛且成本低，建議放量並複製成功圖面邏輯。"; }
-                else if (d.ctr<4 && d.cpc<=9) { item.l="風險素材"; item.c="bg-risk"; item.t="正確說法：CPC雖低但吸睛力不足，建議優化文案不換圖。"; }
-                else if (d.ctr>=4 && d.cpc>9) { item.l="可用但貴"; item.c="bg-risk"; item.t="正確說法：圖面強但成本高，建議縮小受眾精準度。"; }
-                else { item.l="問題素材"; item.c="bg-stop"; item.t="正確說法：成效與成本皆不佳，建議立即停投節省預算。"; }
-                groups[target].push(item);
-            });
-            render(groups);
-        }
-
-        function copy(target, items) {
-            let msg = `【${target} 成效簡報】\n期間：${document.getElementById('sD').value} ~ ${document.getElementById('eD').value}\n`;
-            items.slice(0, 3).forEach(i => {
-                msg += `\n📍受眾：${i.set}\n🖼️素材：${i.name}\n📊數據：CTR ${i.ctr.toFixed(1)}% / CPC $${i.cpc.toFixed(1)}\n🧠建議：${i.t}\n`;
-            });
-            navigator.clipboard.writeText(msg);
-            alert("✅ LINE 專業報告文字已複製！");
-        }
-
-        function render(groups) {
-            const container = document.getElementById('results');
-            container.innerHTML = "";
-            Object.keys(groups).forEach(target => {
-                const items = groups[target]; if (items.length === 0) return;
+            targets.forEach(t => {
+                const group = data.filter(i => i.type === t);
                 const card = document.createElement('div'); card.className = 'card';
-                const chartId = `chart-${target}`;
+                const cid = `chart-${t.replace(/\s+/g, '')}`;
                 card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <h3>🎯 目標：${target}</h3>
-                        <button class="btn-line" onclick='copy("${target}", ${JSON.stringify(items)})'>📋 複製 LINE 報告文字</button>
-                    </div>
-                    <div class="chart-box"><canvas id="${chartId}"></canvas></div>
+                    <h3>🎯 目標：${t}</h3>
+                    <div class="chart-container"><canvas id="${cid}"></canvas></div>
                     <table>
-                        <tr><th width="20%">受眾 (組合)</th><th width="30%">素材 (名稱)</th><th>CTR</th><th>CPC</th><th>判斷結論</th></tr>
-                        ${items.map(i => `<tr><td>${i.set}</td><td style="text-align:left; font-weight:bold;">${i.name}</td><td>${i.ctr.toFixed(1)}%</td><td>$${i.cpc.toFixed(1)}</td><td><span class="badge ${i.c}">${i.l}</span><div class="advice">${i.t}</div></td></tr>`).join('')}
+                        <tr><th>受眾</th><th>素材名稱</th><th>CTR</th><th>CPC</th><th>判斷</th><th>建議</th></tr>
+                        ${group.map(i => `<tr><td>${i.set}</td><td style="font-weight:bold;">${i.name}</td><td>${i.ctr}%</td><td>$${i.cpc}</td><td><span class="badge ${i.c}">${i.l}</span></td><td>${i.a}</td></tr>`).join('')}
                     </table>`;
-                container.appendChild(card);
+                out.appendChild(card);
                 
-                new Chart(document.getElementById(chartId), {
+                new Chart(document.getElementById(cid), {
                     type: 'scatter',
                     data: {
                         datasets: [{
-                            label: `${target} 分佈`,
-                            data: items.map(i => ({ x: i.cpc, y: i.ctr, info: `${i.set} | ${i.name}` })), // 注入受眾與素材資訊
-                            backgroundColor: items.map(i => i.c==='bg-winner'?'#2f855a':(i.c==='bg-risk'?'#d69e2e':'#c53030')),
+                            label: '素材成效雷達',
+                            data: group.map(i => ({ x: i.cpc, y: i.ctr, info: `${i.set} | ${i.name}` })),
+                            backgroundColor: group.map(i => i.c==='bg-winner'?'#2f855a':(i.c==='bg-risk'?'#d69e2e':'#c53030')),
                             pointRadius: 10
                         }]
                     },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        responsive: true, maintainAspectRatio: false,
                         plugins: {
                             tooltip: {
-                                callbacks: {
-                                    label: function(ctx) {
-                                        return `受眾素材：${ctx.raw.info} (CTR: ${ctx.parsed.y}%, CPC: $${ctx.parsed.x})`;
-                                    }
-                                }
+                                callbacks: { label: ctx => `【${ctx.raw.info}】 CTR: ${ctx.parsed.y}%, CPC: $${ctx.parsed.x}` }
                             }
                         }
                     }
